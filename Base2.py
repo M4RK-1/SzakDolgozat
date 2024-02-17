@@ -10,7 +10,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 step = 100
 
 # Evaluate by the model or the actual data
-train_model_cheat = True
+train_model_cheat = False
 
 
 # Read the data
@@ -53,23 +53,29 @@ def main():
     cheat_counter = 0
 
     # Read the full dataset
-    full_data = pd.read_csv("Data/FruitCSV/apple_ripeness.csv")
+    full_data = pd.read_csv("Data/ColorsCSV/features.csv")
 
     # Read the correct labels
-    correct_labels = pd.read_csv("Data/FruitCSV/Raw/apple_quality_only.csv")
+    correct_labels = pd.read_csv("Data/ColorsCSV/all_labels.csv")
 
     # Read the data
-    file_names = ["Data/FruitCSV/apple_ripeness.csv", "Data/FruitCSV/apple_quality_only_cut100.csv", "Data/FruitCSV/apple_unique_qualities.csv"]
+    file_names = ["Data/ColorsCSV/features.csv", "Data/ColorsCSV/cut_labels.csv", "Data/ColorsCSV/unique_labels.csv"]
     dataframes = read_data(file_names)
-    feature_known, label_known, df_predict = preprocess_data(dataframes)
 
-    # Split the known data into training and testing sets
-    feature_train, feature_test, label_train, label_test = train_test_split(feature_known, label_known, test_size=0.2)
+    # load the model and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
-    # Create the initial model
-    model = train_model(feature_train, label_train)
-    evaluate_model(model, feature_test, label_test)
+    # Accuracy on training dataset
+    train_predictions = trainer.predict(train_dataset).predictions
+    train_accuracy = compute_accuracy(train_predictions, train_labels)
+    print(f"Accuracy on training dataset: {train_accuracy:.4f}")
 
+    # Accuracy on evaluation dataset
+    eval_predictions = trainer.predict(eval_dataset).predictions
+    eval_accuracy = compute_accuracy(eval_predictions, eval_labels)
+    print(f"Accuracy on eval dataset: {eval_accuracy:.4f}")
+
+'''
     # Start iterative training
     while len(df_predict) > 0:
         # Extract the next batch of unknown instances
@@ -119,7 +125,7 @@ def main():
 
     # Evaluate predictions based on correct labels
     evaluate_predictions(all_predictions, correct_labels)
-
+'''
 
 def evaluate_predictions(predictions, correct_labels):
     # Ensure correct length and alignment
