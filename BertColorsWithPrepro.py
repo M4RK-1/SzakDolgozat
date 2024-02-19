@@ -41,8 +41,13 @@ num_known_labels = cut_labels.shape[0]
 cut_features = use_features.iloc[:num_known_labels]
 use_features.drop(cut_features.index, inplace=True)
 
+# Convert color labels to numeric values
+colors = unique_labels.iloc[:, 0].unique().tolist()
+
+cut_labels_numer = cut_labels.iloc[:, 0].apply(lambda x: colors.index(x))
+
 # combine the cut features and labels
-cut_data = pd.concat([cut_features, cut_labels], axis=1)
+cut_data = pd.concat([cut_features, cut_labels_numer], axis=1)
 
 # split the features into training and evaluation sets
 train_data, eval_data = train_test_split(cut_data, test_size=0.2)
@@ -54,12 +59,9 @@ tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 train_encodings = tokenizer(train_data.iloc[:, 0].tolist(), truncation=True, padding='max_length', max_length=512)
 eval_encodings = tokenizer(eval_data.iloc[:, 0].tolist(), truncation=True, padding='max_length', max_length=512)
 
-# Convert color labels to numeric values
-colors = unique_labels.iloc[:, 0].unique().tolist()
-
-# Convert color labels to numeric values
-train_labels = train_data.iloc[:, 1].apply(colors.index).tolist()
-eval_labels = eval_data.iloc[:, 1].apply(colors.index).tolist()
+# Convert color labels to lists
+train_labels = train_data.iloc[:, 1].tolist()
+eval_labels = eval_data.iloc[:, 1].tolist()
 
 train_dataset = CustomDataset(train_encodings, train_labels)
 eval_dataset = CustomDataset(eval_encodings, eval_labels)
