@@ -1,6 +1,6 @@
 import sys
 import threading
-import time
+import torch
 
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QApplication, QPushButton, QStackedWidget, QLabel, QFileDialog, QTextEdit, QComboBox, \
@@ -22,6 +22,7 @@ class ProgressCallback(TrainerCallback):
 
     def on_train_begin(self, args, state, control, **kwargs):
         self.update_training_status_signal.emit("Training in progress...")
+
     def on_step_end(self, args, state, control, **kwargs):
         self.current_step += 1
         progress = int((self.current_step / self.num_update_steps) * 100)
@@ -30,7 +31,7 @@ class ProgressCallback(TrainerCallback):
 
     def on_train_end(self, args, state, control, **kwargs):
         self.update_training_status_signal.emit("HIDE_LABEL")
-        self.progress_bar.setValue(100)
+        self.progress_bar.setValue(0)
 
 
 class CustomDataset(Dataset):
@@ -48,16 +49,37 @@ class CustomDataset(Dataset):
 
 
 class MyApp(QWidget):
-    prediction_ready = pyqtSignal(list, pd.DataFrame, QWidget)
+    prediction_ready = pyqtSignal(list, pd.DataFrame)
     update_training_status = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
+
+        self.combo_box_feature = None
+        self.scrollLayout = None
+        self.scrollWidget = None
+        self.scrollArea = None
+        self.page3Layout = None
+        self.page3 = None
+        self.page2 = None
+        self.page1 = None
+        self.unique_labels_num = None
+        self.use_features = None
+        self.unique_labels = None
+        self.cut_labels = None
+        self.all_features = None
+        self.buttons_layout = None
+        self.fine_tune_model_button = None
+        self.text_edit = None
+        self.import_button3 = None
+        self.import_button2 = None
+        self.predict_next_batch_button = None
         self.import_button1 = None
         self.imported_files_label = None
-        self.combo_boxes = []
+        self.combo_boxes = None
         self.stacked_widget = None
         self.dataframes = [None, None, None]
+        self.output = pd.DataFrame()
         self.df_possible_labels = None
         self.progress_bar = None
         self.training_status_label = QLabel()
@@ -73,13 +95,16 @@ class MyApp(QWidget):
 
     def initUI(self):
         self.setWindowTitle("SmartLabeler")
-        self.setGeometry(200, 200, 1000, 700)
+        self.setGeometry(200, 200, 1400, 700)
 
         layout = QVBoxLayout()
         self.stacked_widget = QStackedWidget()
-        page1 = QWidget()
-        page2 = QWidget()
-        page3 = QWidget()
+        self.page1 = QWidget()
+        self.page2 = QWidget()
+        self.page3 = QWidget()
+        self.page3Layout = QVBoxLayout(self.page3)
+
+        self.setupPage3()
 
         button1 = QPushButton("Load files")
         button2 = QPushButton("Check data")
@@ -104,21 +129,21 @@ class MyApp(QWidget):
 
         self.imported_files_label = QLabel()
 
-        page1.layout = QVBoxLayout()
-        page1.layout.addWidget(self.import_button1)
-        page1.layout.addWidget(self.import_button2)
-        page1.layout.addWidget(self.import_button3)
-        page1.layout.addWidget(self.imported_files_label)
+        self.page1.layout = QVBoxLayout()
+        self.page1.layout.addWidget(self.import_button1)
+        self.page1.layout.addWidget(self.import_button2)
+        self.page1.layout.addWidget(self.import_button3)
+        self.page1.layout.addWidget(self.imported_files_label)
 
-        page1.setLayout(page1.layout)
-        self.stacked_widget.addWidget(page1)
-        self.stacked_widget.addWidget(page2)
-        self.stacked_widget.addWidget(page3)
+        self.page1.setLayout(self.page1.layout)
+        self.stacked_widget.addWidget(self.page1)
+        self.stacked_widget.addWidget(self.page2)
+        self.stacked_widget.addWidget(self.page3)
 
         self.text_edit = QTextEdit()
-        page2.layout = QVBoxLayout()
-        page2.layout.addWidget(self.text_edit)
-        page2.setLayout(page2.layout)
+        self.page2.layout = QVBoxLayout()
+        self.page2.layout.addWidget(self.text_edit)
+        self.page2.setLayout(self.page2.layout)
 
         self.progress_bar = QProgressBar(self)
 
@@ -126,6 +151,25 @@ class MyApp(QWidget):
         layout.addWidget(self.progress_bar)
 
         self.setLayout(layout)
+
+    def setupPage3(self):
+        self.scrollArea = QScrollArea(self.page3)
+        self.scrollWidget = QWidget()
+        self.scrollLayout = QVBoxLayout(self.scrollWidget)
+        self.scrollArea.setWidget(self.scrollWidget)
+        self.scrollArea.setWidgetResizable(True)
+        self.page3Layout.addWidget(self.scrollArea)
+
+        self.predict_next_batch_button = QPushButton("Predict Next Batch", self)
+        self.predict_next_batch_button.clicked.connect(self.predict_for_next_batch)
+
+        self.fine_tune_model_button = QPushButton("Fine-tune Model", self)
+        self.fine_tune_model_button.clicked.connect(self.finetune_model)
+
+        self.buttons_layout = QHBoxLayout()
+        self.buttons_layout.addWidget(self.predict_next_batch_button)
+        self.buttons_layout.addWidget(self.fine_tune_model_button)
+        self.page3Layout.addLayout(self.buttons_layout)
 
     def LoadFilesPage(self):
         self.stacked_widget.setCurrentIndex(0)
@@ -136,44 +180,56 @@ class MyApp(QWidget):
         text_to_display = concatenated_df.iloc[1:].to_string(index=False)
         self.text_edit.setPlainText(text_to_display)
 
+    def PredictWithModel(self, additional_features):
+        self.update_training_status.emit("Prediction in progress...")
+
+        tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+        model = AutoModelForSequenceClassification.from_pretrained("fine_tuned_bert")
+
+        total_predictions = len(additional_features)
+        predicted_classes = []
+
+        for i, row in enumerate(additional_features.iterrows()):
+            _, data = row
+            text = data[0]
+            inputs = tokenizer(text, return_tensors="pt")
+
+            with torch.no_grad():
+                outputs = model(**inputs)
+
+            predicted_probs = outputs.logits.softmax(dim=-1)
+            predicted_class = predicted_probs.argmax().item()
+            predicted_classes.append(predicted_class)
+
+            progress = int((i + 1) / total_predictions * 100)
+            self.progress_bar.setValue(progress)
+
+
+        self.progress_bar.setValue(100)
+
+
+        self.update_training_status.emit("HIDE_LABEL")
+
+        return predicted_classes
+
     def CalculationsPage(self):
         self.stacked_widget.setCurrentIndex(2)
-        page3 = self.stacked_widget.widget(2)
+        self.page3 = self.stacked_widget.widget(2)
 
-        def train_model():
-            all_features = self.dataframes[0]
-            cut_labels = self.dataframes[1]
-            unique_labels = self.dataframes[2]
-            use_features = all_features
-
-            # load the tokenizer
+        def train_model(features, labels):
             tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
-            # get the number of available labels
-            num_known_labels = cut_labels.shape[0]
+            cut_labels_numer = labels.iloc[:, 0].apply(lambda x: self.unique_labels_num.index(x))
 
-            # get the cut features
-            use_features, cut_features = use_features[num_known_labels:], use_features[:num_known_labels]
+            cut_data = pd.concat([features, cut_labels_numer], axis=1)
 
-            # Convert labels to numeric values
-            unique_labels_num = unique_labels.iloc[:, 0].unique().tolist()
-
-            # convert the cut labels to numeric values
-            cut_labels_numer = cut_labels.iloc[:, 0].apply(lambda x: unique_labels_num.index(x))
-
-            # combine the cut features and labels
-            cut_data = pd.concat([cut_features, cut_labels_numer], axis=1)
-
-            # split the features into training and evaluation sets
             train_data, eval_data = train_test_split(cut_data, test_size=0.2)
 
-            # tokenize the datasets
             train_encodings = tokenizer(train_data.iloc[:, 0].tolist(), truncation=True, padding='max_length',
                                         max_length=512)
             eval_encodings = tokenizer(eval_data.iloc[:, 0].tolist(), truncation=True, padding='max_length',
                                        max_length=512)
 
-            # Convert color labels to lists
             train_labels = train_data.iloc[:, 1].tolist()
             eval_labels = eval_data.iloc[:, 1].tolist()
 
@@ -183,21 +239,21 @@ class MyApp(QWidget):
             data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
             model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased",
-                                                                       num_labels=len(unique_labels_num))
+                                                                           num_labels=len(self.unique_labels_num))
+
 
             training_args = TrainingArguments(
                 output_dir="./results",
                 learning_rate=2e-5,
                 per_device_train_batch_size=4,
                 per_device_eval_batch_size=4,
-                num_train_epochs=15,
+                # num_train_epochs=15,
+                num_train_epochs=1,
                 weight_decay=0.01,
             )
 
-            # Assume num_epochs, train_dataset, and batch_size are defined
-            num_epochs = training_args.num_train_epochs
-            batch_size = training_args.per_device_train_batch_size
-            num_update_steps = (len(train_dataset) // batch_size + 1) * num_epochs
+            num_update_steps = ((len(train_dataset) // training_args.per_device_train_batch_size + 1)
+                                * training_args.num_train_epochs)
 
             progress_callback = ProgressCallback(self.progress_bar, num_update_steps, self.update_training_status)
 
@@ -213,87 +269,128 @@ class MyApp(QWidget):
 
             trainer.train()
 
-
             trainer.save_model("fine_tuned_bert")
-            model = AutoModelForSequenceClassification.from_pretrained("fine_tuned_bert")
 
-            # Use the trained model to predict the color of the remaining features
-            use_features, additional_features = use_features[100:], use_features[:100]
+            self.use_features, additional_features = self.use_features[100:], self.use_features[:100]
 
-            # Tokenize the additional features
-            additional_encodings = tokenizer(additional_features.iloc[:, 0].tolist(), truncation=True,
-                                             padding='max_length',
-                                             max_length=512)
-
-            # Create a dataset for the additional features
-            additional_dataset = CustomDataset(additional_encodings, [0] * len(additional_features))
-
-            # Make predictions on the additional features
-            additional_predictions = trainer.predict(additional_dataset).predictions
-            predicted_labels = [unique_labels_num[prediction] for prediction in
-                                additional_predictions.argmax(axis=1)]
+            predicted_labels = [self.unique_labels_num[prediction] for prediction in
+                                self.PredictWithModel(additional_features)]
 
             # Emit the signal after training is finished
-            self.prediction_ready.emit(predicted_labels, use_features, page3)
+            self.prediction_ready.emit(predicted_labels, additional_features)
 
         # Connect the signal to a slot that updates the UI
         self.prediction_ready.connect(self.display_predicted_labels)
 
+        self.use_features, features = (self.use_features[self.cut_labels.shape[0]:],
+                                       self.use_features[:self.cut_labels.shape[0]])
+
         # Start training thread
-        train_thread = threading.Thread(target=train_model)
+        train_thread = threading.Thread(target=train_model(features, self.cut_labels))
         train_thread.start()
 
-    def display_predicted_labels(self, predicted_labels, use_features, page3):
-        scroll_area = QScrollArea(self)
-        scroll_widget = QWidget()
-        scroll_layout = QVBoxLayout(scroll_widget)
+    def display_predicted_labels(self, predicted_labels, additional_features):
+        # Clear the existing widgets in the scroll layout
+        self.clearLayout(self.scrollLayout)
+
+        self.combo_boxes = []
+        self.combo_box_feature = []
 
         for i, prediction in enumerate(predicted_labels):
             h_layout = QHBoxLayout()
 
-            value_label = QLabel(f"Value {i}: {use_features.iloc[i, 0]}")
+            value_label = QLabel(f"Value {i}: {additional_features.iloc[i, 0]}")
+            self.combo_box_feature.append(additional_features.iloc[i, 0])
             combo_box = QComboBox()
             combo_box.addItems(self.df_possible_labels.iloc[:, 0])
             combo_box.setCurrentText(str(prediction))
             combo_box.setMaximumWidth(150)
-
             self.combo_boxes.append(combo_box)
 
             h_layout.addWidget(value_label)
             h_layout.addWidget(combo_box)
 
-            scroll_layout.addLayout(h_layout)
+            self.scrollLayout.addLayout(h_layout)
 
-        scroll_area.setWidget(scroll_widget)
-        scroll_area.setWidgetResizable(True)
+    def clearLayout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+            elif item.layout():
+                self.clearLayout(item.layout())
 
-        correct_button = QPushButton("Correct", self)
-        correct_button.clicked.connect(self.correctAllPredictions)
+    def predict_for_next_batch(self):
 
-        if page3.layout() is None:
-            layout = QVBoxLayout()
-            page3.setLayout(layout)
-        else:
-            layout = page3.layout()
-
-        layout.addWidget(scroll_area)
-        layout.addWidget(correct_button)
-
-    def correctAllPredictions(self):
         corrected_labels = []
 
         for combo_box in self.combo_boxes:
             corrected_label = combo_box.currentText()
             corrected_labels.append(corrected_label)
 
-        # Step 3: Convert the list to a DataFrame
-        corrected_labels_df = pd.DataFrame(corrected_labels)
+        corrected_labels_df = pd.DataFrame(corrected_labels, columns=['Labels'])
 
-        # Optional: Display the DataFrame, save it to a file, or perform further processing
-        print(corrected_labels_df)  # For demonstration; prints the DataFrame to console
+        nan_indices = self.output[self.output['Labels'].isna()].index
+        update_indices = nan_indices[:len(corrected_labels_df)]
+        self.output.loc[update_indices, 'Labels'] = corrected_labels_df['Labels'].values[:len(update_indices)]
 
-        # If you want to save this DataFrame to a CSV file:
-        #corrected_labels_df.to_csv("corrected_labels.csv", index=False)
+        self.use_features, additional_features = self.use_features[100:], self.use_features[:100]
+
+        predicted_labels = [self.unique_labels_num[prediction] for prediction in
+                            self.PredictWithModel(additional_features)]
+
+        self.display_predicted_labels(predicted_labels, additional_features)
+
+        print("Next batch done")
+
+    def finetune_model(self):
+        corrected_labels = []
+        corrected_features = self.combo_box_feature
+
+        for combo_box in self.combo_boxes:
+            corrected_label = combo_box.currentText()
+            corrected_labels.append(corrected_label)
+
+        corrected_labels = list(map(self.unique_labels_num.index, corrected_labels))
+
+        tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+        encodings = tokenizer(corrected_features, truncation=True, padding=True, max_length=512)
+
+
+        dataset = CustomDataset(encodings, corrected_labels)
+
+
+        model = AutoModelForSequenceClassification.from_pretrained("fine_tuned_bert")
+
+        training_args = TrainingArguments(
+            output_dir="./results",
+            learning_rate=2e-5,
+            per_device_train_batch_size=4,
+            per_device_eval_batch_size=4,
+            # num_train_epochs=15,
+            num_train_epochs=1,
+            weight_decay=0.01,
+        )
+
+        num_update_steps = ((len(dataset) // training_args.per_device_train_batch_size + 1)
+                            * training_args.num_train_epochs)
+
+        progress_callback = ProgressCallback(self.progress_bar, num_update_steps, self.update_training_status)
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset,
+            tokenizer=tokenizer,
+            callbacks=[progress_callback],
+        )
+
+        trainer.train()
+
+        trainer.save_model("fine_tuned_bert")
+
+    print("Fine-tuning the model with corrected labels...")
 
     def importData(self):
         # uncomment this line to use the file dialog
@@ -306,6 +403,9 @@ class MyApp(QWidget):
                 df = pd.read_csv(file_path, delimiter=';', header=None)
                 df.columns = range(df.shape[1])
                 self.dataframes[0] = df
+                self.all_features = self.dataframes[0]
+                self.output['Features'] = self.all_features
+                self.use_features = self.all_features
                 self.import_button1.setText(f"Data File: {file_path.split('/')[-1]} (Loaded) ✔")
             except Exception as e:
                 self.imported_files_label.setText(f"Data File: Error loading ({str(e)})")
@@ -321,6 +421,9 @@ class MyApp(QWidget):
                 df = pd.read_csv(file_path, delimiter=';', header=None)
                 df.columns = range(df.shape[1])
                 self.dataframes[1] = df
+                self.cut_labels = self.dataframes[1]
+
+                self.output['Labels'] = self.cut_labels
                 self.import_button2.setText(f"Class Labels File: {file_path.split('/')[-1]} (Loaded) ✔")
             except Exception as e:
                 self.imported_files_label.setText(f"Class Labels File: Error loading ({str(e)})")
@@ -336,7 +439,9 @@ class MyApp(QWidget):
                 df = pd.read_csv(file_path, delimiter=';', header=None)
                 df.columns = range(df.shape[1])
                 self.dataframes[2] = df
+                self.unique_labels = self.dataframes[2]
                 self.df_possible_labels = df
+                self.unique_labels_num = self.cut_labels.iloc[:, 0].unique().tolist()
                 self.import_button3.setText(f"Possible Labels File: {file_path.split('/')[-1]} (Loaded) ✔")
             except Exception as e:
                 self.imported_files_label.setText(f"Possible Labels File: Error loading ({str(e)})")
