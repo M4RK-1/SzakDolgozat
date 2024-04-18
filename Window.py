@@ -4,7 +4,7 @@ import torch
 
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QApplication, QPushButton, QStackedWidget, QLabel, QFileDialog, QTextEdit, QComboBox, \
-    QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QProgressBar
+    QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QProgressBar, QFrame
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
@@ -292,14 +292,21 @@ class MyApp(QWidget):
     def display_predicted_labels(self, predicted_labels, additional_features):
         # Clear the existing widgets in the scroll layout
         self.clearLayout(self.scrollLayout)
-
         self.combo_boxes = []
         self.combo_box_feature = []
 
         for i, prediction in enumerate(predicted_labels):
+            if i > 0:
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setFrameShadow(QFrame.Sunken)
+                self.scrollLayout.addWidget(separator)
+
             h_layout = QHBoxLayout()
 
             value_label = QLabel(f"Value {i}: {additional_features.iloc[i, 0]}")
+            value_label.setWordWrap(True)
+            value_label.setMaximumWidth(700)
             self.combo_box_feature.append(additional_features.iloc[i, 0])
             combo_box = QComboBox()
             combo_box.addItems(self.df_possible_labels.iloc[:, 0])
