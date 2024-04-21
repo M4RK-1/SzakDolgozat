@@ -1,3 +1,203 @@
+Move forward five blocks.
+Go to coordinates (x, y, z).
+Turn left.
+Jump.
+Walk backwards.
+Strafe right.
+Follow player.
+Navigate around obstacles.
+Swim upwards.
+Fly to a specified location.
+Come to me.
+Return to spawn point.
+Approach the nearest player.
+Come to the location of the specified block.
+Gather around a designated point.
+Come closer to the target entity.
+Converge at coordinates (x, y, z).
+Come to the surface from underwater.
+Come to the nearest village.
+Come to the highest point in the area.
+Construct a house.
+Build a bridge across the river.
+Create a tower.
+Build a wall around the perimeter.
+Erect a fence around the area.
+Lay down a path.
+Build a staircase.
+Construct a farm.
+Build a redstone contraption.
+Create a statue of a specified entity.
+Break the block in front of you.
+Demolish the structure.
+Destroy all trees in the area.
+Tear down the wall.
+Remove obstacles from the path.
+Break blocks to clear a space.
+Dismantle the house.
+Destroy all entities within a radius.
+Wreck the enemy's base.
+Annihilate the specified target.
+Move to a new area.
+Transport items to another location.
+Relocate the livestock to the farm.
+Shift the base to a different biome.
+Transfer resources to a storage facility.
+Move the campsite to a safer location.
+Relocate villagers to a new village.
+Change the location of the mining operation.
+Shift focus to a different region.
+Move the entire structure to a new world.
+Dig a hole.
+Excavate a tunnel.
+Dig down to bedrock.
+Mine ores from the cave.
+Dig trenches for defense.
+Clear out the area underground.
+Dig out a basement.
+Extract resources from the ground.
+Dig through mountains.
+Carve out a secret hideout.
+Fill the hole with dirt.
+Pour water into the empty space.
+Fill the chest with items.
+Patch up the damaged wall.
+Fill the buckets with lava.
+Fill the furnace with fuel.
+Fill the cauldron with water.
+Pour concrete to create a foundation.
+Fill the empty space with cobblestone.
+Pour magma to create a lava pool.
+Chop down the tree.
+Cut through the jungle.
+Harvest all the crops.
+Clear out the forest.
+Cut down the tall grass.
+Harvest sugar cane by the river.
+Cut through the vines.
+Trim the hedges.
+Cut down the dead bushes.
+Harvest the wheat fields.
+Plant wheat seeds in the farm.
+Sow melon seeds in the garden.
+Plant saplings in the forest.
+Cultivate potatoes in the field.
+Grow carrots in the vegetable patch.
+Plant flowers along the path.
+Sow cocoa beans in the jungle.
+Plant sugarcane by the water.
+Grow mushrooms in the cave.
+Plant bamboo along the riverbank.
+Craft a diamond sword.
+Create a pickaxe from iron ingots.
+Craft armor from leather.
+Make a bow and arrows.
+Craft a fishing rod.
+Create a crafting table.
+Craft a furnace from cobblestone.
+Make torches from coal and sticks.
+Craft a bed from wool and wood.
+Create potions in the brewing stand.
+Attack the nearest hostile mob.
+Eliminate all enemies in the area.
+Hunt down the skeleton archer.
+Slay the zombie horde.
+Defeat the Ender Dragon.
+Kill the Wither boss.
+Annihilate the creeper threat.
+Destroy the spider nest.
+Wipe out the pillager patrol.
+Exterminate the hostile villagers.
+Spawn a chicken.
+Generate a cow.
+Summon a pig.
+Spawn a sheep.
+Bring forth a wolf.
+Summon an ocelot.
+Generate a horse.
+Spawn a zombie.
+Summon a skeleton.
+Bring forth a creeper.
+Collect all dropped items.
+Pick up the diamonds.
+Gather the harvested crops.
+Retrieve the dropped weapons.
+Pick up the eggs.
+Collect the wool from the sheep.
+Gather the fish caught.
+Retrieve the items from the chest.
+Pick up the dropped armor.
+Collect the resources mined.
+Drop the excess items.
+Dispose of unnecessary blocks.
+Discard the damaged tools.
+Drop the unwanted mob drops.
+Dispose of the rotten flesh.
+Release the captured animals.
+Drop the excess food.
+Discard the cobblestone.
+Drop the extra wood.
+Dispose of the unnecessary inventory.
+Execute the previous command.
+Repeat the last action.
+Command all bots to follow.
+Stop all current actions.
+Initiate the build command.
+Activate the destroy command.
+Command bots to guard the area.
+Issue a move command to a specific location.
+Order bots to mine resources.
+Activate the crafting command.
+Mimic the player's movements.
+Copy the building style of a structure.
+Mimic the farming behavior.
+Replicate the mining patterns.
+Mimic the combat tactics.
+Copy the fishing technique.
+Mimic the jumping and sprinting.
+Replicate the tree-cutting method.
+Mimic the crafting recipes.
+Copy the animal herding behavior.
+Repeat the last task.
+Continue the previous action.
+Loop through the current command.
+Repeatedly execute the specified action.
+Perform the task again.
+Keep doing the same action.
+Repeat until further instruction.
+Continue until stopped.
+Execute the sequence in a loop.
+Repeat until a condition is met.
+Halt all actions immediately.
+Cease all movement.
+Stop all ongoing tasks.
+Freeze all commands.
+End all current activities.
+Suspend all operations.
+Pause all actions.
+Terminate all behaviors.
+Stop all bot actions.
+Cancel all queued commands.
+Build a house, then fill it with furniture.
+Dig a tunnel while collecting ores.
+Kill hostile mobs and gather their drops.
+Cut down trees and plant saplings.
+Move to a new location and build a base.
+Spawn animals and then gather their resources.
+Craft tools and then mine resources.
+Destroy enemy structures and build defenses.
+Mimic player actions while navigating obstacles.
+Repeat a sequence of commands while picking up items.
+Dance.
+Sing a song.
+Play with other entities.
+Explore the surroundings.
+Gather information about the environment.
+Interact with villagers.
+Solve puzzles.
+Perform emotes.
+Organize items in chests.
+Decorate the surroundings.
 resume all downloads in the dialogue
 move the book .
 build a tall brick wall all around the pyramid .

@@ -268,7 +268,7 @@ class MyApp(QWidget):
                 per_device_train_batch_size=4,
                 per_device_eval_batch_size=4,
                 num_train_epochs=15,
-                weight_decay=0.01,
+                weight_decay=0.01
             )
 
             num_update_steps = ((len(train_dataset) // training_args.per_device_train_batch_size + 1)
@@ -299,7 +299,7 @@ class MyApp(QWidget):
 
             trainer.save_model("fine_tuned_bert")
 
-            self.use_features, additional_features = self.use_features[100:], self.use_features[:100]
+            self.use_features, additional_features = self.use_features[20:], self.use_features[:20]
 
             self.update_predict_button_text()
 
@@ -420,8 +420,7 @@ class MyApp(QWidget):
             per_device_eval_batch_size=4,
             num_train_epochs=15,
             #num_train_epochs=1,
-            weight_decay=0.01,
-            evaluation_strategy="epoch"
+            weight_decay=0.01
         )
 
         num_update_steps = ((len(train_dataset) // training_args.per_device_train_batch_size + 1)
@@ -448,7 +447,6 @@ class MyApp(QWidget):
         eval_results = trainer.evaluate()
         accuracy = eval_results.get('eval_accuracy', 0) * 100
         self.update_accuracy_signal.emit(accuracy)
-        #self.fine_tune_model_button.setText(f"Fine-tune Model (Accuracy: {accuracy:.2f}%)")
 
         trainer.save_model("fine_tuned_bert")
 
@@ -458,6 +456,7 @@ class MyApp(QWidget):
         #                                           "CSV Files (*.csv);;All Files (*)")
 
         file_path = "Data/CraftAssistCSV/craft_assist_all_features.csv"
+        #file_path = "Data/ColorsCSV/features.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
@@ -477,6 +476,7 @@ class MyApp(QWidget):
         #                                           "CSV Files (*.csv);;All Files (*)")
 
         file_path = "Data/CraftAssistCSV/craft_assist_labels.csv"
+        #file_path = "Data/ColorsCSV/cut_labels.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
@@ -495,6 +495,7 @@ class MyApp(QWidget):
         #                                           "CSV Files (*.csv);;All Files (*)")
 
         file_path = "Data/CraftAssistCSV/craft_assist_uniqe_labels.csv"
+        #file_path = "Data/ColorsCSV/unique_labels.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
