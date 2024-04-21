@@ -1,10 +1,12 @@
 import sys
 import threading
 import torch
+import numpy as np
 
+from sklearn.metrics import accuracy_score
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QApplication, QPushButton, QStackedWidget, QLabel, QFileDialog, QTextEdit, QComboBox, \
-    QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QProgressBar, QFrame
+    QScrollArea, QWidget, QVBoxLayout, QHBoxLayout, QProgressBar, QFrame, QMessageBox
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
@@ -51,6 +53,7 @@ class CustomDataset(Dataset):
 class MyApp(QWidget):
     prediction_ready = pyqtSignal(list, pd.DataFrame)
     update_training_status = pyqtSignal(str)
+    update_accuracy_signal = pyqtSignal(float)
 
     def __init__(self):
         super().__init__()
@@ -84,7 +87,9 @@ class MyApp(QWidget):
         self.progress_bar = None
         self.training_status_label = QLabel()
         self.initUI()
+        self.predicted_data = pd.DataFrame(columns=['Features', 'PredictedLabels'])
         self.update_training_status.connect(self.updateTrainingStatusLabel)
+        self.update_accuracy_signal.connect(self.updateAccuracyOnButton)
 
     def updateTrainingStatusLabel(self, text):
         if text == "HIDE_LABEL":
@@ -92,6 +97,9 @@ class MyApp(QWidget):
         else:
             self.training_status_label.setText(text)
             self.training_status_label.show()
+
+    def updateAccuracyOnButton(self, accuracy):
+        self.fine_tune_model_button.setText(f"Fine-tune Model (Accuracy: {accuracy:.2f}%)")
 
     def initUI(self):
         self.setWindowTitle("SmartLabeler")
@@ -106,18 +114,33 @@ class MyApp(QWidget):
 
         self.setupPage3()
 
-        button1 = QPushButton("Load files")
-        button2 = QPushButton("Check data")
-        button3 = QPushButton("Predict")
-
+        button1 = QPushButton("Load Data")
         button1.clicked.connect(self.LoadFilesPage)
-        button2.clicked.connect(self.SeeLoadedPage)
-        button3.clicked.connect(self.CalculationsPage)
-
         layout.addWidget(button1)
-        layout.addWidget(button2)
+
+        button_layout = QHBoxLayout()
+
+        button2 = QPushButton("Check Data")
+        button2.clicked.connect(self.SeeLoadedPage)
+        button_layout.addWidget(button2, 1)
+
+        button4 = QPushButton("Save Results")
+        button4.clicked.connect(self.save_results)
+        button_layout.addWidget(button4, 1)
+
+        layout.addLayout(button_layout)
+
+        button3 = QPushButton("Predict")
+        button3.clicked.connect(self.CalculationsPage)
         layout.addWidget(button3)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        layout.addWidget(separator)
+
         layout.addWidget(self.stacked_widget)
+        self.setLayout(layout)
 
         self.import_button1 = QPushButton("Load Data File")
         self.import_button2 = QPushButton("Load Known Labels File")
@@ -204,9 +227,7 @@ class MyApp(QWidget):
             progress = int((i + 1) / total_predictions * 100)
             self.progress_bar.setValue(progress)
 
-
         self.progress_bar.setValue(100)
-
 
         self.update_training_status.emit("HIDE_LABEL")
 
@@ -239,16 +260,14 @@ class MyApp(QWidget):
             data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
             model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased",
-                                                                           num_labels=len(self.unique_labels_num))
-
+                                                                       num_labels=len(self.unique_labels_num))
 
             training_args = TrainingArguments(
                 output_dir="./results",
                 learning_rate=2e-5,
                 per_device_train_batch_size=4,
                 per_device_eval_batch_size=4,
-                # num_train_epochs=15,
-                num_train_epochs=1,
+                num_train_epochs=15,
                 weight_decay=0.01,
             )
 
@@ -257,6 +276,11 @@ class MyApp(QWidget):
 
             progress_callback = ProgressCallback(self.progress_bar, num_update_steps, self.update_training_status)
 
+            def compute_metrics(eval_pred):
+                acc_logits, acc_labels = eval_pred
+                acc_predictions = np.argmax(acc_logits, axis=-1)
+                return {"accuracy": accuracy_score(acc_labels, acc_predictions)}
+
             trainer = Trainer(
                 model=model,
                 args=training_args,
@@ -264,14 +288,20 @@ class MyApp(QWidget):
                 eval_dataset=eval_dataset,
                 data_collator=data_collator,
                 tokenizer=tokenizer,
+                compute_metrics=compute_metrics,
                 callbacks=[progress_callback],
             )
 
             trainer.train()
+            eval_results = trainer.evaluate()
+            accuracy = eval_results.get('eval_accuracy', 0) * 100
+            self.update_accuracy_signal.emit(accuracy)
 
             trainer.save_model("fine_tuned_bert")
 
             self.use_features, additional_features = self.use_features[100:], self.use_features[:100]
+
+            self.update_predict_button_text()
 
             predicted_labels = [self.unique_labels_num[prediction] for prediction in
                                 self.PredictWithModel(additional_features)]
@@ -285,9 +315,17 @@ class MyApp(QWidget):
         self.use_features, features = (self.use_features[self.cut_labels.shape[0]:],
                                        self.use_features[:self.cut_labels.shape[0]])
 
+        self.update_predict_button_text()
+
         # Start training thread
         train_thread = threading.Thread(target=train_model(features, self.cut_labels))
         train_thread.start()
+
+
+
+    def update_predict_button_text(self):
+        remaining_items = len(self.use_features)
+        self.predict_next_batch_button.setText(f"Predict Next Batch (remaining: {remaining_items})")
 
     def display_predicted_labels(self, predicted_labels, additional_features):
         # Clear the existing widgets in the scroll layout
@@ -329,7 +367,6 @@ class MyApp(QWidget):
                 self.clearLayout(item.layout())
 
     def predict_for_next_batch(self):
-
         corrected_labels = []
 
         for combo_box in self.combo_boxes:
@@ -342,7 +379,9 @@ class MyApp(QWidget):
         update_indices = nan_indices[:len(corrected_labels_df)]
         self.output.loc[update_indices, 'Labels'] = corrected_labels_df['Labels'].values[:len(update_indices)]
 
-        self.use_features, additional_features = self.use_features[100:], self.use_features[:100]
+        self.use_features, additional_features = self.use_features[20:], self.use_features[:20]
+
+        self.update_predict_button_text()
 
         predicted_labels = [self.unique_labels_num[prediction] for prediction in
                             self.PredictWithModel(additional_features)]
@@ -350,6 +389,8 @@ class MyApp(QWidget):
         self.display_predicted_labels(predicted_labels, additional_features)
 
         print("Next batch done")
+
+
 
     def finetune_model(self):
         corrected_labels = []
@@ -364,47 +405,59 @@ class MyApp(QWidget):
         tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
         encodings = tokenizer(corrected_features, truncation=True, padding=True, max_length=512)
 
+        full_dataset = CustomDataset(encodings, corrected_labels)
 
-        dataset = CustomDataset(encodings, corrected_labels)
-
+        train_size = int(0.8 * len(full_dataset))
+        train_dataset, eval_dataset = torch.utils.data.random_split(full_dataset,
+                                                                    [train_size, len(full_dataset) - train_size])
 
         model = AutoModelForSequenceClassification.from_pretrained("fine_tuned_bert")
 
         training_args = TrainingArguments(
-            output_dir="./results",
+            output_dir="./results_finetune",
             learning_rate=2e-5,
             per_device_train_batch_size=4,
             per_device_eval_batch_size=4,
-            # num_train_epochs=15,
-            num_train_epochs=1,
+            num_train_epochs=15,
+            #num_train_epochs=1,
             weight_decay=0.01,
+            evaluation_strategy="epoch"
         )
 
-        num_update_steps = ((len(dataset) // training_args.per_device_train_batch_size + 1)
+        num_update_steps = ((len(train_dataset) // training_args.per_device_train_batch_size + 1)
                             * training_args.num_train_epochs)
 
         progress_callback = ProgressCallback(self.progress_bar, num_update_steps, self.update_training_status)
 
+        def compute_metrics(eval_pred):
+            acc_logits, acc_labels = eval_pred
+            acc_predictions = np.argmax(acc_logits, axis=-1)
+            return {"accuracy": accuracy_score(acc_labels, acc_predictions)}
+
         trainer = Trainer(
             model=model,
             args=training_args,
-            train_dataset=dataset,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
             tokenizer=tokenizer,
+            compute_metrics=compute_metrics,
             callbacks=[progress_callback],
         )
 
         trainer.train()
+        eval_results = trainer.evaluate()
+        accuracy = eval_results.get('eval_accuracy', 0) * 100
+        self.update_accuracy_signal.emit(accuracy)
+        #self.fine_tune_model_button.setText(f"Fine-tune Model (Accuracy: {accuracy:.2f}%)")
 
         trainer.save_model("fine_tuned_bert")
-
-    print("Fine-tuning the model with corrected labels...")
 
     def importData(self):
         # uncomment this line to use the file dialog
         # file_path, _ = QFileDialog.getOpenFileName(self, "Select File 1 (Data)", "",
         #                                           "CSV Files (*.csv);;All Files (*)")
 
-        file_path = "Data/ColorsCSV/features.csv"
+        file_path = "Data/CraftAssistCSV/craft_assist_all_features.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
@@ -413,6 +466,7 @@ class MyApp(QWidget):
                 self.all_features = self.dataframes[0]
                 self.output['Features'] = self.all_features
                 self.use_features = self.all_features
+                self.update_predict_button_text()
                 self.import_button1.setText(f"Data File: {file_path.split('/')[-1]} (Loaded) ✔")
             except Exception as e:
                 self.imported_files_label.setText(f"Data File: Error loading ({str(e)})")
@@ -422,7 +476,7 @@ class MyApp(QWidget):
         # file_path, _ = QFileDialog.getOpenFileName(self, "Select File 2 (Class Labels)", "",
         #                                           "CSV Files (*.csv);;All Files (*)")
 
-        file_path = "Data/ColorsCSV/cut_labels.csv"
+        file_path = "Data/CraftAssistCSV/craft_assist_labels.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
@@ -440,7 +494,7 @@ class MyApp(QWidget):
         # file_path, _ = QFileDialog.getOpenFileName(self, "Select File 3 (Possible Labels)", "",
         #                                           "CSV Files (*.csv);;All Files (*)")
 
-        file_path = "Data/ColorsCSV/unique_labels.csv"
+        file_path = "Data/CraftAssistCSV/craft_assist_uniqe_labels.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
@@ -452,6 +506,17 @@ class MyApp(QWidget):
                 self.import_button3.setText(f"Possible Labels File: {file_path.split('/')[-1]} (Loaded) ✔")
             except Exception as e:
                 self.imported_files_label.setText(f"Possible Labels File: Error loading ({str(e)})")
+
+    def save_results(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save File", "",
+                                                   "CSV Files (*.csv);;All Files (*)", options=options)
+        if file_name:
+            if not file_name.endswith('.csv'):
+                file_name += '.csv'
+            self.output.to_csv(file_name, index=False)
+            QMessageBox.information(self, "Save File", "Results saved successfully!")
 
 
 def main():
