@@ -68,7 +68,6 @@ class MyApp(QWidget):
         self.page1 = None
         self.unique_labels_num = None
         self.use_features = None
-        self.unique_labels = None
         self.cut_labels = None
         self.all_features = None
         self.buttons_layout = None
@@ -321,8 +320,6 @@ class MyApp(QWidget):
         train_thread = threading.Thread(target=train_model(features, self.cut_labels))
         train_thread.start()
 
-
-
     def update_predict_button_text(self):
         remaining_items = len(self.use_features)
         self.predict_next_batch_button.setText(f"Predict Next Batch (remaining: {remaining_items})")
@@ -390,8 +387,6 @@ class MyApp(QWidget):
 
         print("Next batch done")
 
-
-
     def finetune_model(self):
         corrected_labels = []
         corrected_features = self.combo_box_feature
@@ -419,7 +414,7 @@ class MyApp(QWidget):
             per_device_train_batch_size=4,
             per_device_eval_batch_size=4,
             num_train_epochs=15,
-            #num_train_epochs=1,
+            # num_train_epochs=1,
             weight_decay=0.01
         )
 
@@ -452,11 +447,11 @@ class MyApp(QWidget):
 
     def importData(self):
         # uncomment this line to use the file dialog
-        # file_path, _ = QFileDialog.getOpenFileName(self, "Select File 1 (Data)", "",
-        #                                           "CSV Files (*.csv);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File 1 (Data)", "",
+                                                   "CSV Files (*.csv);;All Files (*)")
 
-        file_path = "Data/CraftAssistCSV/craft_assist_all_features.csv"
-        #file_path = "Data/ColorsCSV/features.csv"
+        # file_path = "Data/CraftAssistCSV/craft_assist_all_features.csv"
+        # file_path = "Data/ColorsCSV/features.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
@@ -472,11 +467,11 @@ class MyApp(QWidget):
 
     def importLabels(self):
         # uncomment this line to use the file dialog
-        # file_path, _ = QFileDialog.getOpenFileName(self, "Select File 2 (Class Labels)", "",
-        #                                           "CSV Files (*.csv);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File 2 (Class Labels)", "",
+                                                   "CSV Files (*.csv);;All Files (*)")
 
-        file_path = "Data/CraftAssistCSV/craft_assist_labels.csv"
-        #file_path = "Data/ColorsCSV/cut_labels.csv"
+        # file_path = "Data/CraftAssistCSV/craft_assist_labels.csv"
+        # file_path = "Data/ColorsCSV/cut_labels.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
@@ -491,17 +486,16 @@ class MyApp(QWidget):
 
     def importLabelTypes(self):
         # uncomment this line to use the file dialog
-        # file_path, _ = QFileDialog.getOpenFileName(self, "Select File 3 (Possible Labels)", "",
-        #                                           "CSV Files (*.csv);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File 3 (Possible Labels)", "",
+                                                   "CSV Files (*.csv);;All Files (*)")
 
-        file_path = "Data/CraftAssistCSV/craft_assist_uniqe_labels.csv"
-        #file_path = "Data/ColorsCSV/unique_labels.csv"
+        # file_path = "Data/CraftAssistCSV/craft_assist_uniqe_labels.csv"
+        # file_path = "Data/ColorsCSV/unique_labels.csv"
         if file_path:
             try:
                 df = pd.read_csv(file_path, delimiter=';', header=None)
                 df.columns = range(df.shape[1])
                 self.dataframes[2] = df
-                self.unique_labels = self.dataframes[2]
                 self.df_possible_labels = df
                 self.unique_labels_num = self.cut_labels.iloc[:, 0].unique().tolist()
                 self.import_button3.setText(f"Possible Labels File: {file_path.split('/')[-1]} (Loaded) ✔")
